@@ -282,7 +282,7 @@ void main() {
     float permanentFoam = (0.5 + 0.5 * noise) * (0.5 + 0.1 * u_impulse) * smoothstep(-0.5, 0.0, noiseLowFreq + movingFillPosition);
 
     if (!gl_FrontFacing) {
-        foam = (0.5 + 0.5 * u_impulse) * 12.0 * noiseLowFreq + 0.2 * noise;
+        foam = u_impulse * 4.0 * (0.5 + 0.5 * noiseLowFreq) + 0.2 * noise;
         N = normalize(vec3(
             .5 * wobble,
             1.0,
@@ -325,7 +325,7 @@ void main() {
 
     vec3 refractionColor = albedo * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
 
-    float totalFoam = max(0.25 * foam , permanentFoam);
+    float totalFoam = max( 0.5 * foam , permanentFoam);
     vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, 0.25 + 0.75 * albedo, totalFoam);
     color += 0.02 * noise;
 
