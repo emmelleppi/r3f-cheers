@@ -1,9 +1,5 @@
 import { createRef } from "react";
 
-export const CAMERA_PROPS = {
-  position: [0, 0, 130],
-  fov: 15,
-};
 
 export const BOTTLE_BODY_ARGS = [2.5, 3, 20, 32];
 export const BOTTLE_BODY_PROPS = {
@@ -50,8 +46,5 @@ export const LABEL = {
   "map-repeat": [-1, 1],
 };
 
-export const cursor = createRef();
-export const refCameraLayer1 = createRef();
-export const refCameraLayer2 = createRef();
 export const savePassEnv = createRef();
 export const savePassBackface = createRef();
