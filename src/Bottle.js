@@ -9,9 +9,10 @@ import {
   BOTTLE_BODY_PROPS,
 } from "./store";
 import { CopyPass, KawaseBlurPass, KernelSize } from "postprocessing";
-import { fragmentGlassShader, vertexGlassShader } from "./materials/glassMaterial";
-import { fragmentLiquidShader, vertexLiquidShader } from "./materials/liquidMaterial";
-import { fragmentCapShader, vertexCapShader } from "./materials/capMaterial";
+import { fragmentDepthGlassShader, fragmentGlassShader, vertexGlassShader } from "./materials/glassMaterial";
+import { fragmentDepthLiquidShader, fragmentLiquidShader, vertexLiquidShader } from "./materials/liquidMaterial";
+import { fragmentCapShader, fragmentDepthCapShader, vertexCapShader } from "./materials/capMaterial";
+import { fragmentFloorShader, vertexFloorShader } from "./materials/floorMaterial";
 
 const position = new THREE.Vector3();
 const lastPos = new THREE.Vector3();
@@ -65,8 +66,27 @@ function Bottle() {
   const wobbleAmountToAddX = useRef(0);
   const wobbleAmountToAddZ = useRef(0);
   const sinewave = useRef(0);
-  const light = useRef(null);
   const [shadowMap, setShadowMap] = useState(null);
+  
+  const light = useState(() => {
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.castShadow = true;
+    dirLight.needsUpdate = true;
+    dirLight.shadow.camera.near = 0.1;
+    dirLight.shadow.camera.far = 45;
+    dirLight.shadow.camera.left = -40;
+    dirLight.shadow.camera.right = 40;
+    dirLight.shadow.camera.top = 40;
+    dirLight.shadow.camera.bottom = -40;
+    dirLight.shadow.map = new THREE.WebGLRenderTarget(256, 256, { depthBuffer: true, type: THREE.HalfFloatType })
+    dirLight.shadow.mapSize.set(256, 256)
+    dirLight.shadow.map.texture.minFilter = THREE.LinearFilter
+    dirLight.shadow.map.texture.magFilter = THREE.LinearFilter
+    dirLight.shadow.map.texture.generateMipmaps = false
+    dirLight.position.set(10, 30, 10)
+    return dirLight;
+  })[0];
+
 
   const { nodes } = useGLTF('/bottle.glb')
   useEffect(() => {
@@ -109,6 +129,16 @@ function Bottle() {
       u_specular: {value: null},
       u_lut: {value: null},
       u_color: {value: new THREE.Color("#aaCDaa")},
+      ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
+    })
+  )[0]
+  
+  const floorUniforms = useState(
+    () => ({
+      u_resolution: {value: new THREE.Vector2()},
+      u_color: {value: new THREE.Color("#aaa")},
+      u_liquidColor: liquidUniforms.u_color,
+      u_glassColor: glassUniforms.u_color,
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
     })
   )[0]
@@ -171,14 +201,7 @@ function Bottle() {
     liquidUniforms.u_sceneMap.value = blurRT.texture;
   };
 
-
-  console.log(shadowMap)
-
   useFrame((_, dt) => {
-    if(light.current?.shadow?.map?.texture && !shadowMap) {
-      setShadowMap(light.current?.shadow?.map?.texture)
-    }
-
     ref.current.updateWorldMatrix(false, true);
     time.current += dt;
     const delta = dt
@@ -275,21 +298,24 @@ function Bottle() {
     <>
       <group ref={ref} dispose={null} {...bind}>
         <group position={[0, 10.01, 0]}>
-          <mesh geometry={nodes.Bottle_Cap.geometry} renderOrder={0}  >
+          <mesh geometry={nodes.Bottle_Cap.geometry} renderOrder={0} >
             <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexCapShader} fragmentShader={fragmentCapShader} />
           </mesh>
           <mesh geometry={nodes.Bottle_Cap.geometry} renderOrder={5} castShadow >
             <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexCapShader} fragmentShader={fragmentCapShader} />
+            <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexCapShader} fragmentShader={fragmentDepthCapShader} />
           </mesh>
         </group>
-        <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={1} onBeforeRender={onBeforeRender} castShadow>
+        <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={1} onBeforeRender={onBeforeRender}  >
           <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexGlassShader} fragmentShader={fragmentGlassShader} side={THREE.BackSide} />
         </mesh>
         <mesh visible={true} geometry={nodes.Coca_Liquid.geometry} position={[0, -1.312, 0]} renderOrder={2} onBeforeRender={onBeforeRenderBlur} castShadow >
           <shaderMaterial lights uniforms={liquidUniforms} vertexShader={vertexLiquidShader} fragmentShader={fragmentLiquidShader} side={THREE.DoubleSide} />
+          <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexLiquidShader} fragmentShader={fragmentDepthLiquidShader} side={THREE.DoubleSide} />
         </mesh>
-        <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={3} onBeforeRender={onBeforeRender}>
+        <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={3} onBeforeRender={onBeforeRender} castShadow>
           <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexGlassShader} fragmentShader={fragmentGlassShader} />
+          <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexGlassShader} fragmentShader={fragmentDepthGlassShader} side={THREE.BackSide} />
         </mesh>
         {/* <mesh geometry={nodes.Label.geometry} renderOrder={5} position={[1.69, 0.84, -0.01]}>
           <meshBasicMaterial map={tassoni} {...LABEL} side={2}/>
@@ -298,17 +324,15 @@ function Bottle() {
 
       <mesh visible={true} lights rotation-x={-Math.PI / 2} renderOrder={0} receiveShadow >
         <planeGeometry args={[100, 100]} />
-        <meshBasicMaterial  color="red" side={THREE.DoubleSide} />
+        <shaderMaterial lights uniforms={floorUniforms} vertexShader={vertexFloorShader} fragmentShader={fragmentFloorShader} />
       </mesh>
-      {shadowMap && <mesh visible={true} renderOrder={100} position={[-10, 10, 0]}  >
+      {/* {light && <mesh visible={true} renderOrder={100} position={[-10, 10, 0]}  >
         <planeGeometry args={[10, 10]} />
-        <meshBasicMaterial map={shadowMap} />
-      </mesh>}
-      <directionalLight ref={light} castShadow position={[10, 40, 10]} shadow-mapSize={[1024, 1024]}>
-        <orthographicCamera attach="shadow-camera" args={[-40, 40, 40, -40, 0.1, 45]}  />
-      </directionalLight>
-      {shadowMap && <primitive object={light.current.target} />}
-      {shadowMap && <cameraHelper args={[light.current.shadow.camera]} />}
+        <meshBasicMaterial map={light.shadow.map.texture} />
+      </mesh>} */}
+      {light && <primitive object={light} />}
+      {light && <primitive object={light.target} />}
+      {light && <cameraHelper visible={false} args={[light.shadow.camera]} />}
     </>
   );
 }

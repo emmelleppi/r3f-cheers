@@ -5,21 +5,7 @@ varying vec3 v_modelPosition;
 varying vec3 v_worldPosition;
 varying vec3 v_viewPosition;
 varying vec3 v_worldNormal;
-
-#if defined( USE_SHADOWMAP )
-    uniform mat4 directionalShadowMatrix[1];
-    varying vec4 vDirectionalShadowCoord[1];
-    varying vec4 v_goboCoord;
-
-    struct DirectionalLightShadow {
-        float shadowBias;
-        float shadowNormalBias;
-        float shadowRadius;
-        vec2 shadowMapSize;
-    };
-
-    uniform DirectionalLightShadow directionalLightShadows[1];
-#endif
+varying vec2 v_highPrecisionZW;
 
 vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
 	return normalize( ( vec4( dir, 0.0 ) * matrix ).xyz );
@@ -38,9 +24,7 @@ void main () {
     v_viewPosition = -viewPosition.xyz;
     v_worldNormal = inverseTransformDirection(v_viewNormal, viewMatrix);
     
-    #if defined( USE_SHADOWMAP )
-        vDirectionalShadowCoord[0] = directionalShadowMatrix[0] * vec4(v_worldPosition, 1.0) + vec4(v_worldNormal * directionalLightShadows[0].shadowNormalBias, 0. );
-    #endif
+    v_highPrecisionZW = gl_Position.zw;
 }`
 
 export const fragmentCapShader = `
@@ -147,3 +131,14 @@ void main() {
     gl_FragColor = vec4(linearToSRGB(color), 1.0);
 }`
 
+
+export const fragmentDepthCapShader = `
+    varying vec2 v_highPrecisionZW;
+    varying vec3 v_worldPosition;
+
+    void main() {
+        float distFromFloor = clamp((v_worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
+        float fragCoordZ = 0.5 * v_highPrecisionZW[0] / v_highPrecisionZW[1] + 0.5 - 0.001 * v_worldPosition.y;
+        gl_FragColor = vec4(0.0, 0.0, fragCoordZ, -(0.1 + 0.9 * distFromFloor) );
+    }
+`

@@ -7,6 +7,8 @@ varying vec3 v_viewPosition;
 varying vec3 v_worldInnerNormal;
 varying vec3 v_innerNormal;
 varying vec3 v_fillPosition;
+varying float v_wobble;
+varying vec2 v_highPrecisionZW;
 
 uniform vec3 u_fillAmount;
 uniform float u_wobbleX;
@@ -44,15 +46,32 @@ void main () {
     vec3 worldPosAdjusted = worldPosition + (worldPosX  * u_wobbleX)+ (worldPosZ* u_wobbleZ); 
 
     v_fillPosition = worldPosAdjusted - u_position - u_fillAmount;
+
+    float wobbleIntensity = abs(u_wobbleX) + abs(u_wobbleZ);
+    
+    float freq = 0.5;
+    float amplitude = 1.5; 
+    v_wobble = sin((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 0.5 * u_time) * (amplitude * wobbleIntensity);
+    
+    freq = 0.734;
+    amplitude = 0.0987; 
+    v_wobble += cos((v_fillPosition.x * freq) - (v_fillPosition.z * freq) + 2.0 * u_time);
+    
+    freq = 1.2532;
+    amplitude = 0.05876; 
+    v_wobble += cos((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 4.0 * u_time);
+    v_wobble *= amplitude * wobbleIntensity;
     
     vec4 viewPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * viewPosition;
     
-	v_viewNormal = normalMatrix * normal;
-	v_uv = uv;
+    v_viewNormal = normalMatrix * normal;
+    v_uv = uv;
     v_modelPosition = position;
     v_worldPosition = worldPosition;
     v_viewPosition = -viewPosition.xyz;
+
+    v_highPrecisionZW = gl_Position.zw;
 }`
 
 export const fragmentLiquidShader = `
@@ -64,6 +83,7 @@ varying vec3 v_viewPosition;
 varying vec3 v_worldInnerNormal;
 varying vec3 v_innerNormal;
 varying vec3 v_fillPosition;
+varying float v_wobble;
 
 uniform vec2 u_resolution;
 uniform sampler2D u_sceneMap;
@@ -247,22 +267,7 @@ vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
 void main() {
     float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
 
-    float wobbleIntensity = abs(u_wobbleX) + abs(u_wobbleZ);
-
-    float freq = 0.5;
-    float amplitude = 1.5; 
-    float wobble = sin((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 0.5 * u_time) * (amplitude * wobbleIntensity);
-    
-    freq = 0.734;
-    amplitude = 0.0987; 
-    wobble += cos((v_fillPosition.x * freq) - (v_fillPosition.z * freq) + 2.0 * u_time);
-    
-    freq = 1.2532;
-    amplitude = 0.05876; 
-    wobble += cos((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 4.0 * u_time);
-    wobble *= amplitude * wobbleIntensity;
-
-    float movingFillPosition = v_fillPosition.y + wobble;
+    float movingFillPosition = v_fillPosition.y + v_wobble;
     float cutoffTop = step(0.0, movingFillPosition);
     
     if (cutoffTop > 0.5) {
@@ -274,7 +279,7 @@ void main() {
     
     vec3 noisePos = v_worldPosition;
     noisePos.y -= u_time;
-    float noiseScale = 0.1 + 0.9 * smoothstep(-12.0 * u_impulse, 0.0, v_fillPosition.y);
+    float noiseScale = 0.1 + 0.9 * smoothstep(-12.0 * u_impulse, 0.0, movingFillPosition);
     float noise = noiseScale * clamp(snoise(vec4(8.0 * noisePos, 2.0 * u_time)), 0.0, 1.0);
     float noiseLowFreq = noiseScale * clamp(snoise(vec4(0.1 * v_modelPosition, 0.025 * u_time)), 0.0, 1.0);
     
@@ -284,9 +289,9 @@ void main() {
     if (!gl_FrontFacing) {
         foam = u_impulse * 4.0 * (0.5 + 0.5 * noiseLowFreq) + 0.2 * noise;
         N = normalize(vec3(
-            .5 * wobble,
+            .5 * v_wobble,
             1.0,
-            .5 * wobble
+            .5 * v_wobble
         ));
     }
     foam = clamp(foam, 0.0, 1.0);
@@ -294,7 +299,7 @@ void main() {
     N = normalize(N);
 
     vec3 V = normalize(cameraPosition - v_worldPosition);
-	vec3 R = normalize(reflect(-V, N));
+	  vec3 R = normalize(reflect(-V, N));
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 5.0);
 
@@ -332,3 +337,34 @@ void main() {
     gl_FragColor = vec4(linearToSRGB(color), 0.0);
 }`
 
+export const fragmentDepthLiquidShader = `
+    varying vec2 v_highPrecisionZW;
+    varying float v_wobble;
+    varying vec3 v_fillPosition;
+    varying vec3 v_viewNormal;
+    varying vec3 v_worldPosition;
+
+    vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
+      return normalize( ( vec4( dir, 0.0 ) * matrix ).xyz );
+    }
+
+    void main() {
+        float movingFillPosition = v_fillPosition.y + v_wobble;
+        float cutoffTop = step(0.0, movingFillPosition);
+        
+        if (cutoffTop > 0.5) {
+            discard;
+        }
+
+        float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
+        vec3 viewNormal = normalize(v_viewNormal);
+        vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
+        vec3 V = normalize(cameraPosition - v_worldPosition);
+        float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
+
+        float distFromFloor = 1.0 - clamp((v_worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
+
+        float fragCoordZ = 0.5 * v_highPrecisionZW[0] / v_highPrecisionZW[1] + 0.5;
+        gl_FragColor = vec4(0.0, fragCoordZ, 0.0, -mix(0.5 *NdV, 1.0, 1.0 - 0.9 * distFromFloor) );
+    }
+`

@@ -5,21 +5,7 @@ varying vec3 v_modelPosition;
 varying vec3 v_worldPosition;
 varying vec3 v_viewPosition;
 varying vec3 v_worldNormal;
-
-#if defined( USE_SHADOWMAP )
-    uniform mat4 directionalShadowMatrix[1];
-    varying vec4 vDirectionalShadowCoord[1];
-    varying vec4 v_goboCoord;
-
-    struct DirectionalLightShadow {
-        float shadowBias;
-        float shadowNormalBias;
-        float shadowRadius;
-        vec2 shadowMapSize;
-    };
-
-    uniform DirectionalLightShadow directionalLightShadows[1];
-#endif
+varying vec2 v_highPrecisionZW;
 
 vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
 	return normalize( ( vec4( dir, 0.0 ) * matrix ).xyz );
@@ -38,9 +24,7 @@ void main () {
     v_viewPosition = -viewPosition.xyz;
     v_worldNormal = inverseTransformDirection(v_viewNormal, viewMatrix);
 
-    #if defined( USE_SHADOWMAP )
-        vDirectionalShadowCoord[0] = directionalShadowMatrix[0] * vec4(v_worldPosition, 1.0) + vec4(v_worldNormal * directionalLightShadows[0].shadowNormalBias, 0. );
-    #endif
+    v_highPrecisionZW = gl_Position.zw;
 }`
 
 export const fragmentGlassShader = `
@@ -49,6 +33,7 @@ varying vec2 v_uv;
 varying vec3 v_modelPosition;
 varying vec3 v_worldPosition;
 varying vec3 v_viewPosition;
+varying vec2 v_highPrecisionZW;
 
 uniform vec2 u_resolution;
 uniform sampler2D u_sceneMap;
@@ -132,7 +117,6 @@ void main() {
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 2.0);
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
-    ao *= ao;
 
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
@@ -164,3 +148,25 @@ void main() {
     gl_FragColor = vec4(linearToSRGB(color), 1.0);
 }`
 
+export const fragmentDepthGlassShader = `
+    varying vec2 v_highPrecisionZW;
+    varying vec3 v_viewNormal;
+    varying vec3 v_worldPosition;
+
+    vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
+      return normalize( ( vec4( dir, 0.0 ) * matrix ).xyz );
+    }
+
+    void main() {
+        float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
+        vec3 viewNormal = normalize(v_viewNormal);
+        vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
+        vec3 V = normalize(cameraPosition - v_worldPosition);
+        float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
+
+        float distFromFloor = 1.0 - clamp((v_worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
+
+        float fragCoordZ = 0.5 * v_highPrecisionZW[0] / v_highPrecisionZW[1] + 0.5;
+        gl_FragColor = vec4(fragCoordZ, 0.0, 0.0, -mix(0.5 * NdV, 1.0, 1.0 - 0.9 * distFromFloor) );
+    }
+`
