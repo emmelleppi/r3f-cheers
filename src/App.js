@@ -1,5 +1,5 @@
 import React, { Suspense, useRef } from "react";
-import { Canvas, useResource } from "@react-three/fiber";
+import { Canvas, useResource, useThree } from "@react-three/fiber";
 import { Physics, usePlane } from "@react-three/cannon";
 import Bottle from "./Bottle";
 import { Mouse } from "./mouse";
@@ -15,13 +15,16 @@ function PhyPlane(props) {
 }
 
 function PhyPlanes() {
+  const viewport = useThree((state) => state.viewport);
+  console.log(viewport);
+
   return (
     <>
       <PhyPlane rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.3, 0]} />
-      <PhyPlane position={[0, 0, -100]} />
-      <PhyPlane rotation={[Math.PI, 0, 0]} position={[0, 0, 75]} />
-      <PhyPlane rotation={[0, -Math.PI / 2, 0]} position={[30, 0, 0]} />
-      <PhyPlane rotation={[0, Math.PI / 2, 0]} position={[-30, 0, 0]} />
+      <PhyPlane position={[0, 0, -50]} />
+      <PhyPlane rotation={[Math.PI, 0, 0]} position={[0, 0, 20]} />
+      <PhyPlane rotation={[0, -Math.PI / 2, 0]} position={[0.5 * viewport.width, 0, 0]} />
+      <PhyPlane rotation={[0, Math.PI / 2, 0]} position={[-0.5 * viewport.width, 0, 0]} />
     </>
   );
 }
