@@ -123,8 +123,9 @@ void main() {
     noise = smoothstep(0.4, 1.0, noise);
     
     vec3 noiseCoords = v_modelPosition;
-    noiseCoords.y += (0.1 + 0.1 * noise) * u_time;
-    float noiseHighFreq = abs(snoise(vec4(1.5 * noiseCoords, u_time * 0.0)));
+    noiseCoords.y *= 1.5;
+    // noiseCoords.y += (0.1 + 0.1 * noise) * u_time;
+    float noiseHighFreq = clamp(snoise(vec4(1.5 * noiseCoords, u_time * 0.1)), 0.0, 1.0);
     noiseHighFreq = step(0.5, noiseHighFreq);
 
     float waterDrops = noise * noiseHighFreq;
@@ -133,7 +134,7 @@ void main() {
 	vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
 	vec3 V = normalize(cameraPosition - v_worldPosition);
 
-    N += waterDrops * V;
+    N += 0.25 * waterDrops * V;
     N = normalize(N);
     
 	vec3 R = normalize(reflect(-V, N));
@@ -143,8 +144,8 @@ void main() {
 
 
     // Reflection
-    vec3 albedo = pow(u_color, vec3(2.2));
-    float roughness = 0.5 * noise * (1.0 - waterDrops);
+    vec3 albedo = pow(u_color, vec3(2.2)) + 0.1 * noise * (1.0 - waterDrops);
+    float roughness = 0.5 * noise * (1.0 - 0.8 * waterDrops);
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
@@ -172,7 +173,7 @@ void main() {
     scene = mix(scene, sceneBlurred, roughness);
 
     vec3 refractionColor = diffuseColor * scene;
-    vec3 color = ao * refractionColor + (gl_FrontFacing ? 1.0 : 0.5) * ao * (specularIBL);
+    vec3 color = ao * refractionColor + (gl_FrontFacing ? 1.0 : 0.5) * ao * (0.5 * specularIBL);
 
     gl_FragColor = vec4(linearToSRGB(color), 1.0);
 }`

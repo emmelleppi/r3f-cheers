@@ -239,7 +239,7 @@ void main() {
     vec3 refractionColor = albedo * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
 
     float totalFoam = max( 0.5 * foam , permanentFoam);
-    vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, 0.25 + 0.75 * albedo, totalFoam);
+    vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, 0.5 + 0.5 * albedo, totalFoam);
     color += 0.02 * noise;
 
     gl_FragColor = vec4(linearToSRGB(color), 0.0);
@@ -306,7 +306,6 @@ export const fragmentDepthLiquidShader = `
         refractionCoords /= 2.0;
 
         float caustic = (1.0 - NdV) * texture2D(u_caustic, 3.0 * refractionCoords).r;
-
 
         float distFromFloor = 1.0 - clamp((worldPosition.y + 12.0) / 16.0, 0.0, 1.0);
 
