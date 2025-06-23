@@ -119,20 +119,32 @@ ${snoise}
 void main() {
 	float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
     
+    float noise = clamp(0.5 + snoise(vec4(0.2 * v_modelPosition, u_time * 0.025)), 0.0, 1.0);
+    noise = smoothstep(0.4, 1.0, noise);
+    
+    vec3 noiseCoords = v_modelPosition;
+    noiseCoords.y += (0.1 + 0.1 * noise) * u_time;
+    float noiseHighFreq = abs(snoise(vec4(1.0 * noiseCoords, u_time * 0.0)));
+    noiseHighFreq = step(0.5, noiseHighFreq);
+
+    float waterDrops = noise * noiseHighFreq;
+
     vec3 viewNormal = faceDirection * normalize(v_viewNormal);
 	vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
 	vec3 V = normalize(cameraPosition - v_worldPosition);
+
+    N += waterDrops * V;
+    N = normalize(N);
+    
 	vec3 R = normalize(reflect(-V, N));
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 2.0);
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
 
-    float noise = clamp(0.5 + snoise(vec4(0.2 * v_modelPosition, u_time * 0.025)), 0.0, 1.0);
-    noise = smoothstep(0.4, 1.0, noise);
 
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
-    float roughness = 0.5 * noise;
+    float roughness = 0.5 * noise * (1.0 - waterDrops);
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
