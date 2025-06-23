@@ -165,12 +165,12 @@ function Bottle() {
   )[0];
 
   const [ref, api] = useCylinder(() => ({
-      mass: 1,
+      mass: 10,
       args: [2.5, 3, 20, 32],
       position: [0, 20, 0],
       rotation: [0, -1.8, 0],
-      linearDamping: 0.0,
-      angularDamping: 0.75,
+      linearDamping: 0,
+      angularDamping: 0,
   }));
   const bind = useDragConstraint(ref);
   useEffect(() => {
