@@ -5,7 +5,7 @@ Made with react-three-fiber and use-cannon
 ![](https://raw.githubusercontent.com/emmelleppi/r3f-cheers/new-version/screenshot.jpg)
 
 
-<h3>Based on these tutorials</h3>
+<h3>Based on this tutorial</h3>
 
 - Liquid shader:
 https://www.patreon.com/posts/quick-game-art-18245226
