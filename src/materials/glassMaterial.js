@@ -124,7 +124,7 @@ void main() {
     
     vec3 noiseCoords = v_modelPosition;
     noiseCoords.y += (0.1 + 0.1 * noise) * u_time;
-    float noiseHighFreq = abs(snoise(vec4(1.0 * noiseCoords, u_time * 0.0)));
+    float noiseHighFreq = abs(snoise(vec4(1.23 * noiseCoords, u_time * 0.0)));
     noiseHighFreq = step(0.5, noiseHighFreq);
 
     float waterDrops = noise * noiseHighFreq;
@@ -144,7 +144,7 @@ void main() {
 
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
-    float roughness = 0.5 * noise * (1.0 - waterDrops);
+    float roughness = 0.9 * noise * (1.0 - waterDrops);
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
