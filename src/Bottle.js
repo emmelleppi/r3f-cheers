@@ -99,7 +99,7 @@ function Bottle() {
   const specular = useTexture("/specular2.png");
   specular.generateMipmaps = false;
 
-  const bgTexture = useTexture('/bg.png')
+  const bgTexture = useTexture('/bg.jpg')
 
   const copyPass = useState(() => new CopyPass())[0];
 

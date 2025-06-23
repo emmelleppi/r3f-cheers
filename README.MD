@@ -1,14 +1,11 @@
-# Preview https://r3f-liquid-bottle.netlify.app 🍾🍾🍾
+# Preview https://r3f-cheers.netlify.app 🍾🍾🍾
 
 Made with react-three-fiber and use-cannon
 
-![](https://raw.githubusercontent.com/emmelleppi/r3f-liquid-bottle/master/screenshot.jpg)
+![](https://raw.githubusercontent.com/emmelleppi/r3f-cheers/master/screenshot.jpg)
 
 
 <h3>Based on these tutorials</h3>
-
-- Refraction shader:
-https://tympanus.net/codrops/2019/10/29/real-time-multiside-refraction-in-three-steps/
 
 - Liquid shader:
 https://www.patreon.com/posts/quick-game-art-18245226

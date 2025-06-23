@@ -4,7 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useState } from "react";
 
 function Background() {
-  const bgTexture = useTexture('/bg.png')
+  const bgTexture = useTexture('/bg.jpg')
 
   const uniforms = useState(
     () => ({
