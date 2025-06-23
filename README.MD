@@ -2,7 +2,7 @@
 
 Made with react-three-fiber and use-cannon
 
-![](https://raw.githubusercontent.com/emmelleppi/r3f-cheers/master/screenshot.jpg)
+![](https://raw.githubusercontent.com/emmelleppi/r3f-cheers/new-version/screenshot.jpg)
 
 
 <h3>Based on these tutorials</h3>
