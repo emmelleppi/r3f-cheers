@@ -144,8 +144,8 @@ void main() {
 
 
     // Reflection
-    vec3 albedo = pow(u_color, vec3(2.2)) + 0.1 * noise * (1.0 - waterDrops);
-    float roughness = 0.5 * noise * (1.0 - 0.8 * waterDrops);
+    vec3 albedo = pow(u_color, vec3(2.2)) + 0.08 * noise * (1.0 - waterDrops);
+    float roughness = 0.5 * noise * (1.0 - waterDrops);
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
