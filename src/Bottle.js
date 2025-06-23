@@ -212,8 +212,8 @@ function Bottle() {
     let height = currentRT.height;
     onBeforeRenderScene(gl, currentRT, width, height)
 
-    width = Math.floor(0.25 * currentRT.width);
-    height = Math.floor(0.25 * currentRT.height);
+    width = Math.floor(0.5 * currentRT.width);
+    height = Math.floor(0.5 * currentRT.height);
     onBeforeRenderBlur(gl, currentRT, width, height)
 
     glassUniforms.u_resolution.value.set(currentRT.width, currentRT.height);
@@ -225,8 +225,8 @@ function Bottle() {
     const currentRT = gl.getRenderTarget();
     if (!currentRT) return;
 
-    const width = Math.floor(0.25 * currentRT.width);
-    const height = Math.floor(0.25 * currentRT.height);
+    const width = Math.floor(0.5 * currentRT.width);
+    const height = Math.floor(0.5 * currentRT.height);
     
     onBeforeRenderBlur(gl, currentRT, width, height)
 

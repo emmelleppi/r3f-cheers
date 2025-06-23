@@ -45,7 +45,7 @@ function Background() {
 
             vec2 uv = (v_uv - 0.5) * aspect + 0.5;
             gl_FragColor = texture2D(u_texture, uv);
-            gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), 1.0 - pow(uv.y, 2.0));
+            gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), 1.0 - pow(uv.y, 4.0));
             gl_FragColor.rgb = pow(gl_FragColor.rgb, vec3(2.2));
           }
         `}
