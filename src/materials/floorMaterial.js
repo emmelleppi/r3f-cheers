@@ -98,7 +98,7 @@ vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
         return vec3(opacity);
       } else {
           return mix(
-            (0.75 + 0.25 * opacity) * (2.0 * (1.0 - glass) * glassColor + 2.0 * (1.0 - liquid) * (glassColor + (0.25 * liquidColor))),
+            (0.75 + 0.25 * opacity) * (2.0 * glassColor + 0.5 * (1.0 - liquid) * liquidColor),
             vec3(opacity),
             opacity
           );
@@ -190,7 +190,7 @@ void main() {
     // getIBLContribution(reflectionColor, NdV, roughness, N, R, specularColor);
 
     vec3 color = pow(u_color, vec3(2.2));
-    color *= getShadowMask();
+    color *= 0.25 + 0.75 * getShadowMask();
 
 
     gl_FragColor = vec4(linearToSRGB(color), 1.0);

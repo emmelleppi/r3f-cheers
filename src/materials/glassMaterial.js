@@ -120,18 +120,18 @@ void main() {
 
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
-    float roughness = 0.0;
+    float roughness = 0.1;
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
     vec3 specularColor = mix(f0, albedo, metallic);
 
     vec3 reflectionColor;
-    getIBLContribution(reflectionColor, NdV, roughness, N, R, 0.5 * specularColor);
+    getIBLContribution(reflectionColor, NdV, roughness, N, R, 1.0 * specularColor);
 
     // Refraction
     float ior = 1.5;
-    float thickness = 0.3 * faceDirection;
+    float thickness = 0.35 * faceDirection;
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
     vec3 transmissionRay = refractionVector * thickness;

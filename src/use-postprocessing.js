@@ -15,7 +15,7 @@ import {
 function usePostprocessing() {
   const { gl, scene, size, camera } = useThree();
 
-  const [composer, bloomEfx] = useMemo(() => {
+  const [composer] = useMemo(() => {
     const composer = new EffectComposer(gl, {
       multisampling: 0,
       antialias: false,
@@ -28,9 +28,9 @@ function usePostprocessing() {
         mipmapBlur:false,
         luminanceThreshold:0.9,
         luminanceSmoothing:0.05,
-        intensity:0,
-        kernelSize:KernelSize.LARGE,
-        resolutionScale:0.5,
+        intensity: 2,
+        kernelSize: KernelSize.LARGE,
+        resolutionScale: 0.5,
         resolutionX:Resolution.AUTO_SIZE,
         resolutionY:Resolution.AUTO_SIZE,
         width:Resolution.AUTO_SIZE,

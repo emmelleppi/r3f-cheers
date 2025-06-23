@@ -43,7 +43,7 @@ void main () {
 
     vec3 worldPosX= rotateAroundAxis(worldPosOffset, vec3(0.0, 0.0, 1.0), 90.0);
     vec3 worldPosZ = rotateAroundAxis(worldPosOffset, vec3(1.0, 0.0, 0.0), 90.0);
-    vec3 worldPosAdjusted = worldPosition + (worldPosX  * u_wobbleX)+ (worldPosZ* u_wobbleZ); 
+    vec3 worldPosAdjusted = worldPosition + (worldPosX  * u_wobbleX)+ (worldPosZ * u_wobbleZ); 
 
     v_fillPosition = worldPosAdjusted - u_position - u_fillAmount;
 
@@ -96,7 +96,6 @@ uniform float u_wobbleZ;
 uniform float u_time;
 uniform float u_impulse;
 uniform vec3 u_color;
-
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -276,8 +275,14 @@ void main() {
     
     vec3 viewNormal = faceDirection * normalize(v_viewNormal);
     vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
+
+    vec3 worldPosition = v_worldPosition;
+    if (!gl_FrontFacing) {
+        worldPosition.y -= 1.0 * v_modelPosition.y * u_wobbleX;
+        worldPosition.y -= 1.0 * v_modelPosition.y * u_wobbleZ;
+    }
     
-    vec3 noisePos = v_worldPosition;
+    vec3 noisePos = worldPosition;
     noisePos.y -= u_time;
     float noiseScale = 0.1 + 0.9 * smoothstep(-12.0 * u_impulse, 0.0, movingFillPosition);
     float noise = noiseScale * clamp(snoise(vec4(8.0 * noisePos, 2.0 * u_time)), 0.0, 1.0);
@@ -298,7 +303,7 @@ void main() {
     N += noise * 0.5;
     N = normalize(N);
 
-    vec3 V = normalize(cameraPosition - v_worldPosition);
+    vec3 V = normalize(cameraPosition - worldPosition);
 	  vec3 R = normalize(reflect(-V, N));
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 5.0);
@@ -321,7 +326,7 @@ void main() {
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
     vec3 transmissionRay = refractionVector * thickness;
-    vec3 refractedRayExit = v_worldPosition + transmissionRay;
+    vec3 refractedRayExit = worldPosition + transmissionRay;
 
     vec4 ndcPos = projectionMatrix * viewMatrix * vec4( refractedRayExit, 1.0 );
     vec2 refractionCoords = ndcPos.xy / ndcPos.w;
@@ -343,6 +348,13 @@ export const fragmentDepthLiquidShader = `
     varying vec3 v_fillPosition;
     varying vec3 v_viewNormal;
     varying vec3 v_worldPosition;
+    varying vec3 v_modelPosition;
+
+    uniform sampler2D u_caustic;
+    uniform mat4 modelMatrix;
+    uniform mat4 projectionMatrix;
+    uniform float u_wobbleX;
+    uniform float u_wobbleZ;
 
     vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
       return normalize( ( vec4( dir, 0.0 ) * matrix ).xyz );
@@ -356,15 +368,46 @@ export const fragmentDepthLiquidShader = `
             discard;
         }
 
+        vec3 worldPosition = v_worldPosition;
+        if (!gl_FrontFacing) {
+            worldPosition.y -= 1.0 * v_modelPosition.y * u_wobbleX;
+            worldPosition.y -= 1.0 * v_modelPosition.y * u_wobbleZ;
+        }
+        
         float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
         vec3 viewNormal = normalize(v_viewNormal);
         vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
-        vec3 V = normalize(cameraPosition - v_worldPosition);
+        vec3 V = normalize(cameraPosition - worldPosition);
+
+        if (!gl_FrontFacing) {
+          N = normalize(vec3(
+              .5 * v_wobble,
+              1.0,
+              .5 * v_wobble
+          ));
+        }
+
         float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
 
-        float distFromFloor = 1.0 - clamp((v_worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
+        // Refraction
+        float ior = 1.325;
+        float thickness = 10.0;
+        float refractionRatio = 1.0 / ior;
+        vec3 refractionVector = refract( -V, N, refractionRatio );
+        vec3 transmissionRay = refractionVector * thickness;
+        vec3 refractedRayExit = v_fillPosition + transmissionRay;
+
+        vec4 ndcPos = projectionMatrix * viewMatrix * vec4( refractedRayExit, 1.0 );
+        vec2 refractionCoords = ndcPos.xy / ndcPos.w;
+        refractionCoords += 1.0;
+        refractionCoords /= 2.0;
+
+        float caustic = (1.0 - NdV) * texture2D(u_caustic, 3.0 * refractionCoords).r;
+
+
+        float distFromFloor = 1.0 - clamp((worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
 
         float fragCoordZ = 0.5 * v_highPrecisionZW[0] / v_highPrecisionZW[1] + 0.5;
-        gl_FragColor = vec4(0.0, fragCoordZ, 0.0, -mix(0.5 *NdV, 1.0, 1.0 - 0.9 * distFromFloor) );
+        gl_FragColor = vec4(0.0, fragCoordZ, 0.0, -mix(0.5 * NdV + 1.5 * caustic, 1.0, 1.0 - 0.9 * distFromFloor) );
     }
 `

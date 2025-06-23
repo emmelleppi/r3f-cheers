@@ -117,7 +117,7 @@ void main() {
 
     // Reflection
     vec3 albedo = pow(vec3(0.9, 0.9, 0.9), vec3(2.2));
-    float roughness = 0.2;
+    float roughness = 0.3;
     float metallic = 1.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);

@@ -5,9 +5,6 @@ import lerp from "lerp";
 import { useCylinder } from "@react-three/cannon";
 import { useDragConstraint } from "./mouse";
 import { useGLTF, useHelper, useTexture } from "@react-three/drei";
-import {
-  BOTTLE_BODY_PROPS,
-} from "./store";
 import { CopyPass, KawaseBlurPass, KernelSize } from "postprocessing";
 import { fragmentDepthGlassShader, fragmentGlassShader, vertexGlassShader } from "./materials/glassMaterial";
 import { fragmentDepthLiquidShader, fragmentLiquidShader, vertexLiquidShader } from "./materials/liquidMaterial";
@@ -66,8 +63,7 @@ function Bottle() {
   const wobbleAmountToAddX = useRef(0);
   const wobbleAmountToAddZ = useRef(0);
   const sinewave = useRef(0);
-  const [shadowMap, setShadowMap] = useState(null);
-  
+
   const light = useState(() => {
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.castShadow = true;
@@ -94,7 +90,10 @@ function Bottle() {
     nodes.Coca_Outside.geometry.boundingBox.getCenter(center)
   }, [nodes])
 
-  const tassoni = useTexture("/tassoni.png");
+  const caustic = useTexture("/caustic.jpg");
+  caustic.wrapS = THREE.RepeatWrapping;
+  caustic.wrapT = THREE.RepeatWrapping;
+
   const lut = useTexture("/lut.png");
   const diffuse = useTexture("/diffuse2.png");
   diffuse.generateMipmaps = false;
@@ -118,6 +117,16 @@ function Bottle() {
       u_impulse: {value: 0},
       u_color: {value: new THREE.Color("#FFD733")},
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
+    })
+  )[0]
+  
+  const liquidDepthUniforms = useState(
+    () => ({
+      u_fillAmount: liquidUniforms.u_fillAmount,
+      u_wobbleX: liquidUniforms.u_wobbleX,
+      u_wobbleZ: liquidUniforms.u_wobbleZ,
+      u_position: liquidUniforms.u_position,
+      u_caustic: {value: null },
     })
   )[0]
   
@@ -150,7 +159,14 @@ function Bottle() {
     () => new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false })
   )[0];
 
-  const [ref, api] = useCylinder(() => BOTTLE_BODY_PROPS);
+  const [ref, api] = useCylinder(() => ({
+      mass: 1,
+      args: [2.5, 3, 20, 32],
+      position: [0, 20, 0],
+      rotation: [0, -1.8, 0],
+      linearDamping: 0.0,
+      angularDamping: 0.75,
+  }));
   const bind = useDragConstraint(ref);
   useEffect(() => {
     const vel = new THREE.Vector3();
@@ -185,9 +201,10 @@ function Bottle() {
     glassUniforms.u_sceneMap.value = copyPass.renderTarget.texture;
   };
 
-  const onBeforeRenderBlur = (gl) => {
+  const onBeforeRenderBlur = (gl,a,b,c,d) => {
     const currentRT = gl.getRenderTarget();
     if (!currentRT) return;
+
 
     const width = Math.floor(0.5 * currentRT.width);
     const height = Math.floor(0.5 * currentRT.height);
@@ -209,7 +226,7 @@ function Bottle() {
     const recovery = 2;
     const thickness = 0.05;
     const wobbleSpeed = 0.5;
-    const maxWobble = 0.035;
+    const maxWobble = fit(compensation.y, 10, 3, 0.035, 0.01);
 
     liquidUniforms.u_impulse.value *= 0.995
 
@@ -273,7 +290,7 @@ function Bottle() {
     _vTemp.y -= lowestPoint;
     compensation.lerp(_vTemp, dt * 10);
     
-    fillAmount.y =  fit(compensation.y, 10, 3, -10, -10.5);
+    fillAmount.y = fit(compensation.y, 10, 3, -10, -10.5);
 
     lastPos.copy(position);
     lastRot.copy(rotation);
@@ -292,6 +309,8 @@ function Bottle() {
     liquidUniforms.u_diffuse.value = diffuse;
     liquidUniforms.u_specular.value = specular;
     liquidUniforms.u_lut.value = lut;
+    
+    liquidDepthUniforms.u_caustic.value = caustic;
   });
 
   return (
@@ -311,25 +330,22 @@ function Bottle() {
         </mesh>
         <mesh visible={true} geometry={nodes.Coca_Liquid.geometry} position={[0, -1.312, 0]} renderOrder={2} onBeforeRender={onBeforeRenderBlur} castShadow >
           <shaderMaterial lights uniforms={liquidUniforms} vertexShader={vertexLiquidShader} fragmentShader={fragmentLiquidShader} side={THREE.DoubleSide} />
-          <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexLiquidShader} fragmentShader={fragmentDepthLiquidShader} side={THREE.DoubleSide} />
+          <shaderMaterial attach="customDepthMaterial" uniforms={liquidDepthUniforms} vertexShader={vertexLiquidShader} fragmentShader={fragmentDepthLiquidShader} side={THREE.BackSide} />
         </mesh>
         <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={3} onBeforeRender={onBeforeRender} castShadow>
           <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexGlassShader} fragmentShader={fragmentGlassShader} />
           <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexGlassShader} fragmentShader={fragmentDepthGlassShader} side={THREE.BackSide} />
         </mesh>
-        {/* <mesh geometry={nodes.Label.geometry} renderOrder={5} position={[1.69, 0.84, -0.01]}>
-          <meshBasicMaterial map={tassoni} {...LABEL} side={2}/>
-        </mesh> */}
       </group>
 
       <mesh visible={true} lights rotation-x={-Math.PI / 2} renderOrder={0} receiveShadow >
         <planeGeometry args={[100, 100]} />
         <shaderMaterial lights uniforms={floorUniforms} vertexShader={vertexFloorShader} fragmentShader={fragmentFloorShader} />
       </mesh>
-      {/* {light && <mesh visible={true} renderOrder={100} position={[-10, 10, 0]}  >
+      {light && <mesh visible={true} renderOrder={100} position={[-10, 10, 0]}  >
         <planeGeometry args={[10, 10]} />
         <meshBasicMaterial map={light.shadow.map.texture} />
-      </mesh>} */}
+      </mesh>}
       {light && <primitive object={light} />}
       {light && <primitive object={light.target} />}
       {light && <cameraHelper visible={false} args={[light.shadow.camera]} />}
