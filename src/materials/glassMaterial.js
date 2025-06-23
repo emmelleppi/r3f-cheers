@@ -156,7 +156,7 @@ void main() {
     getIBLContribution(diffuseIBL, specularIBL, NdV, roughness, N, R, diffuseColor, specularColor);
 
     // Refraction
-    float ior = 1.5;
+    float ior = 1.5 + 0.2 * waterDrops;
     float thickness = 0.1 * faceDirection;
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
