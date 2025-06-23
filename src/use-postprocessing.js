@@ -1,4 +1,3 @@
-import * as THREE from "three";
 import { useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
@@ -8,9 +7,9 @@ import {
   BloomEffect,
   KernelSize,
   Resolution,
+  SMAAEffect,
+  VignetteEffect,
 } from "postprocessing";
-
-
 
 function usePostprocessing() {
   const { gl, scene, size, camera } = useThree();
@@ -28,7 +27,7 @@ function usePostprocessing() {
         mipmapBlur:false,
         luminanceThreshold:0.9,
         luminanceSmoothing:0.05,
-        intensity: 2,
+        intensity: 0,
         kernelSize: KernelSize.LARGE,
         resolutionScale: 0.5,
         resolutionX:Resolution.AUTO_SIZE,
@@ -39,7 +38,9 @@ function usePostprocessing() {
     );
 
     composer.addPass(renderPass);
-    composer.addPass(new EffectPass(camera, BLOOM));
+    composer.addPass(new EffectPass(camera, new SMAAEffect()));
+    // composer.addPass(new EffectPass(camera, BLOOM));
+    composer.addPass(new EffectPass(camera, new VignetteEffect()));
 
     return [composer, BLOOM];
   }, [gl, scene, camera]);

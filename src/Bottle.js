@@ -1,10 +1,10 @@
 import * as THREE from "three";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useFrame, useThree, extend } from "@react-three/fiber";
+import React, { useEffect, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import lerp from "lerp";
 import { useCylinder } from "@react-three/cannon";
 import { useDragConstraint } from "./mouse";
-import { useGLTF, useHelper, useTexture } from "@react-three/drei";
+import { useGLTF, useTexture } from "@react-three/drei";
 import { CopyPass, KawaseBlurPass, KernelSize } from "postprocessing";
 import { fragmentDepthGlassShader, fragmentGlassShader, vertexGlassShader } from "./materials/glassMaterial";
 import { fragmentDepthLiquidShader, fragmentLiquidShader, vertexLiquidShader } from "./materials/liquidMaterial";
@@ -43,7 +43,6 @@ const getLowestPoint = (geometry, matrix) => {
 
   return lowestY;
 };
-
 
 function clamp(val, min, max) {
   return val < min ? min : val > max ? max : val;
@@ -100,6 +99,8 @@ function Bottle() {
   const specular = useTexture("/specular2.png");
   specular.generateMipmaps = false;
 
+  const bgTexture = useTexture('/bg.png')
+
   const copyPass = useState(() => new CopyPass())[0];
 
   const liquidUniforms = useState(
@@ -132,8 +133,10 @@ function Bottle() {
   
   const glassUniforms = useState(
     () => ({
+      u_time: liquidUniforms.u_time,
       u_resolution: {value: new THREE.Vector2()},
       u_sceneMap: {value: null},
+      u_sceneBlurredMap: {value: null},
       u_diffuse: {value: null},
       u_specular: {value: null},
       u_lut: {value: null},
@@ -145,9 +148,11 @@ function Bottle() {
   const floorUniforms = useState(
     () => ({
       u_resolution: {value: new THREE.Vector2()},
-      u_color: {value: new THREE.Color("#aaa")},
+      u_imageAspect: {value: 1 },
+      u_color: {value: new THREE.Color("#555")},
       u_liquidColor: liquidUniforms.u_color,
       u_glassColor: glassUniforms.u_color,
+      u_bgTexture: {value: null},
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
     })
   )[0]
@@ -184,41 +189,52 @@ function Bottle() {
     }
   }, [api])
 
-  const onBeforeRender = (gl) => {
-    const currentRT = gl.getRenderTarget();
-    if (!currentRT) return;
-    const width = currentRT.width;
-    const height = currentRT.height;
-
-    
+  const onBeforeRenderScene = (gl, currentRT, width, height) => {
     copyPass.setSize(width, height);
     copyPass.fullscreenMaterial.inputBuffer = currentRT.texture;
 		gl.setRenderTarget(copyPass.renderTarget);
 		gl.render(copyPass.scene, copyPass.camera);
     gl.setRenderTarget(currentRT);
-
-    glassUniforms.u_resolution.value.set(width, height);
-    glassUniforms.u_sceneMap.value = copyPass.renderTarget.texture;
   };
 
-  const onBeforeRenderBlur = (gl,a,b,c,d) => {
-    const currentRT = gl.getRenderTarget();
-    if (!currentRT) return;
-
-
-    const width = Math.floor(0.5 * currentRT.width);
-    const height = Math.floor(0.5 * currentRT.height);
-    
+  const onBeforeRenderBlur = (gl, currentRT, width, height) => {
     blurPass.setSize(width, height);
     blurRT.setSize(width, height);
     blurPass.render(gl, currentRT, blurRT);
     gl.setRenderTarget(currentRT);
-
-    liquidUniforms.u_resolution.value.set(width, height);
-    liquidUniforms.u_sceneMap.value = blurRT.texture;
   };
 
-  useFrame((_, dt) => {
+  const onBeforeRenderGlass = (gl) => {
+    const currentRT = gl.getRenderTarget();
+    if (!currentRT) return;
+
+    let width = currentRT.width;
+    let height = currentRT.height;
+    onBeforeRenderScene(gl, currentRT, width, height)
+
+    width = Math.floor(0.25 * currentRT.width);
+    height = Math.floor(0.25 * currentRT.height);
+    onBeforeRenderBlur(gl, currentRT, width, height)
+
+    glassUniforms.u_resolution.value.set(currentRT.width, currentRT.height);
+    glassUniforms.u_sceneMap.value = copyPass.renderTarget.texture;
+    glassUniforms.u_sceneBlurredMap.value = blurRT.texture;
+  }
+  
+  const onBeforeRenderLiquid = (gl) => {
+    const currentRT = gl.getRenderTarget();
+    if (!currentRT) return;
+
+    const width = Math.floor(0.25 * currentRT.width);
+    const height = Math.floor(0.25 * currentRT.height);
+    
+    onBeforeRenderBlur(gl, currentRT, width, height)
+
+    liquidUniforms.u_resolution.value.set(currentRT.width, currentRT.height);
+    liquidUniforms.u_sceneMap.value = blurRT.texture;
+  }
+
+  useFrame(({viewport}, dt) => {
     ref.current.updateWorldMatrix(false, true);
     time.current += dt;
     const delta = dt
@@ -309,8 +325,12 @@ function Bottle() {
     liquidUniforms.u_diffuse.value = diffuse;
     liquidUniforms.u_specular.value = specular;
     liquidUniforms.u_lut.value = lut;
-    
+
     liquidDepthUniforms.u_caustic.value = caustic;
+
+    floorUniforms.u_bgTexture.value = bgTexture;
+    floorUniforms.u_resolution.value.set(Math.floor(window.innerWidth * viewport.dpr), Math.floor(window.innerHeight * viewport.dpr));
+    floorUniforms.u_imageAspect.value = bgTexture.image.width / bgTexture.image.height;
   });
 
   return (
@@ -325,27 +345,25 @@ function Bottle() {
             <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexCapShader} fragmentShader={fragmentDepthCapShader} />
           </mesh>
         </group>
-        <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={1} onBeforeRender={onBeforeRender}  >
+        <mesh geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={1} onBeforeRender={onBeforeRenderGlass}  >
           <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexGlassShader} fragmentShader={fragmentGlassShader} side={THREE.BackSide} />
         </mesh>
-        <mesh visible={true} geometry={nodes.Coca_Liquid.geometry} position={[0, -1.312, 0]} renderOrder={2} onBeforeRender={onBeforeRenderBlur} castShadow >
+        <mesh geometry={nodes.Coca_Liquid.geometry} position={[0, -1.312, 0]} renderOrder={2} onBeforeRender={onBeforeRenderLiquid} castShadow >
           <shaderMaterial lights uniforms={liquidUniforms} vertexShader={vertexLiquidShader} fragmentShader={fragmentLiquidShader} side={THREE.DoubleSide} />
-          <shaderMaterial attach="customDepthMaterial" uniforms={liquidDepthUniforms} vertexShader={vertexLiquidShader} fragmentShader={fragmentDepthLiquidShader} side={THREE.BackSide} />
+          <shaderMaterial attach="customDepthMaterial" uniforms={liquidDepthUniforms} vertexShader={vertexLiquidShader} fragmentShader={fragmentDepthLiquidShader} side={THREE.DoubleSide} 
+          // depthWrite={false}
+          />
         </mesh>
-        <mesh visible={true} geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={3} onBeforeRender={onBeforeRender} castShadow>
+        <mesh geometry={nodes.Coca_Outside.geometry} position={[0, -0.04, 0]} renderOrder={3} onBeforeRender={onBeforeRenderGlass} castShadow>
           <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexGlassShader} fragmentShader={fragmentGlassShader} />
           <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexGlassShader} fragmentShader={fragmentDepthGlassShader} side={THREE.BackSide} />
         </mesh>
       </group>
 
-      <mesh visible={true} lights rotation-x={-Math.PI / 2} renderOrder={0} receiveShadow >
+      <mesh lights rotation-x={-Math.PI / 2} renderOrder={0} receiveShadow >
         <planeGeometry args={[100, 100]} />
         <shaderMaterial lights uniforms={floorUniforms} vertexShader={vertexFloorShader} fragmentShader={fragmentFloorShader} />
       </mesh>
-      {light && <mesh visible={true} renderOrder={100} position={[-10, 10, 0]}  >
-        <planeGeometry args={[10, 10]} />
-        <meshBasicMaterial map={light.shadow.map.texture} />
-      </mesh>}
       {light && <primitive object={light} />}
       {light && <primitive object={light.target} />}
       {light && <cameraHelper visible={false} args={[light.shadow.camera]} />}

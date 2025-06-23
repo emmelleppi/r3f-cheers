@@ -1,3 +1,5 @@
+import { snoise } from "./snoise"
+
 export const vertexGlassShader = `
 varying vec3 v_viewNormal;
 varying vec2 v_uv;
@@ -37,10 +39,12 @@ varying vec2 v_highPrecisionZW;
 
 uniform vec2 u_resolution;
 uniform sampler2D u_sceneMap;
+uniform sampler2D u_sceneBlurredMap;
 uniform sampler2D u_diffuse;
 uniform sampler2D u_specular;
 uniform sampler2D u_lut;
 uniform vec3 u_color;
+uniform float u_time;
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -107,6 +111,8 @@ vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
 	return normalize( ( vec4( dir, 0.0 ) * matrix ).xyz );
 }
 
+${snoise}
+
 void main() {
 	float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
     
@@ -118,20 +124,23 @@ void main() {
     float fresnel = pow(1.0 - NdV, 2.0);
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
 
+    float noise = clamp(0.5 + snoise(vec4(0.2 * v_modelPosition, u_time * 0.025)), 0.0, 1.0);
+    noise = smoothstep(0.4, 1.0, noise);
+
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
-    float roughness = 0.1;
+    float roughness = 0.1 + 0.7 * noise;
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
     vec3 specularColor = mix(f0, albedo, metallic);
 
     vec3 reflectionColor;
-    getIBLContribution(reflectionColor, NdV, roughness, N, R, 1.0 * specularColor);
+    getIBLContribution(reflectionColor, NdV, roughness, N, R, specularColor);
 
     // Refraction
     float ior = 1.5;
-    float thickness = 0.35 * faceDirection;
+    float thickness = 0.1 * faceDirection;
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
     vec3 transmissionRay = refractionVector * thickness;
@@ -142,7 +151,11 @@ void main() {
     refractionCoords += 1.0;
     refractionCoords /= 2.0;
 
-    vec3 refractionColor = diffuseColor * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
+    vec3 scene = SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
+    vec3 sceneBlurred = SRGBtoLinear(texture2D(u_sceneBlurredMap, refractionCoords)).rgb;
+    scene = mix(scene, sceneBlurred, roughness);
+
+    vec3 refractionColor = diffuseColor * scene;
     vec3 color = ao * refractionColor + (gl_FrontFacing ? 1.0 : 0.5) * ao * reflectionColor;
 
     gl_FragColor = vec4(linearToSRGB(color), 1.0);
@@ -164,7 +177,7 @@ export const fragmentDepthGlassShader = `
         vec3 V = normalize(cameraPosition - v_worldPosition);
         float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
 
-        float distFromFloor = 1.0 - clamp((v_worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
+        float distFromFloor = 1.0 - clamp((v_worldPosition.y + 12.0) / 16.0, 0.0, 1.0);
 
         float fragCoordZ = 0.5 * v_highPrecisionZW[0] / v_highPrecisionZW[1] + 0.5;
         gl_FragColor = vec4(fragCoordZ, 0.0, 0.0, -mix(0.5 * NdV, 1.0, 1.0 - 0.9 * distFromFloor) );

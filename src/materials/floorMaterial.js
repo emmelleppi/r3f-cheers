@@ -50,10 +50,12 @@ varying vec3 v_modelPosition;
 varying vec3 v_worldPosition;
 varying vec3 v_viewPosition;
 
-uniform vec2 u_resolution;
 uniform vec3 u_color;
 uniform vec3 u_liquidColor;
 uniform vec3 u_glassColor;
+uniform sampler2D u_bgTexture;
+uniform vec2 u_resolution;
+uniform float u_imageAspect;
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -171,28 +173,18 @@ vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
 void main() {
     float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
     
-    vec3 viewNormal = faceDirection * normalize(v_viewNormal);
-    vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
-    vec3 V = normalize(cameraPosition - v_worldPosition);
-    vec3 R = normalize(reflect(-V, N));
-    float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
-    float fresnel = pow(1.0 - NdV, 2.0);
+    vec2 screenUV = gl_FragCoord.xy / u_resolution;
+    
+    vec2 aspect = vec2(u_resolution.x / u_resolution.y / u_imageAspect, 1.0);
+    if ((u_resolution.x / u_resolution.y) > u_imageAspect) {
+      aspect = vec2(1.0, u_resolution.y / u_resolution.x * u_imageAspect);
+    }
 
-    // // Reflection
-    // vec3 albedo = pow(vec3(0.9, 0.9, 0.9), vec3(2.2));
-    // float roughness = 0.2;
-    // float metallic = 1.0;
-    // vec3 f0 = vec3(0.04);
-    // vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
-    // vec3 specularColor = mix(f0, albedo, metallic);
+    vec2 uv = (screenUV - 0.5) * aspect + 0.5;
+    vec3 bgColor = texture2D(u_bgTexture, uv).rgb;
+    vec3 color = bgColor;
+    color *= 0.5 + 0.5 * getShadowMask();
 
-    // vec3 reflectionColor;
-    // getIBLContribution(reflectionColor, NdV, roughness, N, R, specularColor);
-
-    vec3 color = pow(u_color, vec3(2.2));
-    color *= 0.25 + 0.75 * getShadowMask();
-
-
-    gl_FragColor = vec4(linearToSRGB(color), 1.0);
+    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor.rgb = pow(gl_FragColor.rgb, vec3(2.2));
 }`
-

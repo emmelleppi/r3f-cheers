@@ -1,19 +1,7 @@
-import * as THREE from "three";
 import React, { Suspense, useRef } from "react";
 import { Canvas, useResource } from "@react-three/fiber";
 import { Physics, usePlane } from "@react-three/cannon";
 import Bottle from "./Bottle";
-import {
-  Box,
-  ContactShadows,
-  PerspectiveCamera,
-  Plane,
-  useAspect,
-  useTextureLoader,
-  Environment,
-  useTexture,
-  OrbitControls
-} from "@react-three/drei";
 import { Mouse } from "./mouse";
 import usePostprocessing from "./use-postprocessing";
 import Background from "./Background";
@@ -65,7 +53,7 @@ export default function App() {
           position: [0, 0, 60],
           fov: 30,
           near: 30,
-          far: 150,
+          far: 200,
         }}
         shadows
         dpr={[1, 1.5]}
@@ -73,7 +61,7 @@ export default function App() {
           powerPreference: "high-performance",
           antialias: false,
           stencil: false,
-          alpha: true,
+          alpha: false,
         }}
       >
         <Suspense fallback={null}>

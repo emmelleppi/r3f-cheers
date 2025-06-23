@@ -137,7 +137,7 @@ export const fragmentDepthCapShader = `
     varying vec3 v_worldPosition;
 
     void main() {
-        float distFromFloor = clamp((v_worldPosition.y + 12.0) / 12.0, 0.0, 1.0);
+        float distFromFloor = clamp((v_worldPosition.y + 12.0) / 16.0, 0.0, 1.0);
         float fragCoordZ = 0.5 * v_highPrecisionZW[0] / v_highPrecisionZW[1] + 0.5 - 0.001 * v_worldPosition.y;
         gl_FragColor = vec4(0.0, 0.0, fragCoordZ, -(0.1 + 0.9 * distFromFloor) );
     }
