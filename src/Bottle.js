@@ -140,7 +140,7 @@ function Bottle() {
       u_diffuse: {value: null},
       u_specular: {value: null},
       u_lut: {value: null},
-      u_color: {value: new THREE.Color("#50b070")},
+      u_color: {value: new THREE.Color("#60c080")},
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
     })
   )[0]

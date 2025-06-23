@@ -211,7 +211,7 @@ void main() {
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 5.0);
 
-    vec3 albedo = pow(u_color, vec3(2.2)) + 0.05 * noise + foam;
+    vec3 albedo = pow(u_color, vec3(2.2)) + 0.1 * noise + foam;
 
     // Reflection
     float roughness = 0.0;
