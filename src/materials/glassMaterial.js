@@ -76,8 +76,9 @@ vec2 cartesianToPolar(vec3 n) {
     return uv;
 }
 
-void getIBLContribution(inout vec3 specular, float NdV, float roughness, vec3 n, vec3 reflection, vec3 specularColor) {
+void getIBLContribution(inout vec3 diffuse, inout vec3 specular, float NdV, float roughness, vec3 n, vec3 reflection, vec3 diffuseColor, vec3 specularColor) {
     vec3 brdf = SRGBtoLinear(texture2D(u_lut, vec2(NdV, roughness))).rgb;
+    vec3 diffuseLight = RGBMToLinear(texture2D(u_diffuse, cartesianToPolar(n))).rgb;
 
     // Sample 2 levels and mix between to get smoother degradation
     float blend = roughness * ENV_LODS;
@@ -105,6 +106,8 @@ void getIBLContribution(inout vec3 specular, float NdV, float roughness, vec3 n,
     // Bit of extra reflection for smooth materials
     float reflectivity = pow((1.0 - roughness), 2.0) * 0.05;
     specular = specularLight * (specularColor * brdf.x + brdf.y + reflectivity);
+
+    diffuse = diffuseLight * diffuseColor;
 }
 
 vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
@@ -129,14 +132,15 @@ void main() {
 
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
-    float roughness = 0.1 + 0.7 * noise;
+    float roughness = 0.5 * noise;
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
     vec3 specularColor = mix(f0, albedo, metallic);
 
-    vec3 reflectionColor;
-    getIBLContribution(reflectionColor, NdV, roughness, N, R, specularColor);
+    vec3 specularIBL;
+    vec3 diffuseIBL;
+    getIBLContribution(diffuseIBL, specularIBL, NdV, roughness, N, R, diffuseColor, specularColor);
 
     // Refraction
     float ior = 1.5;
@@ -156,7 +160,7 @@ void main() {
     scene = mix(scene, sceneBlurred, roughness);
 
     vec3 refractionColor = diffuseColor * scene;
-    vec3 color = ao * refractionColor + (gl_FrontFacing ? 1.0 : 0.5) * ao * reflectionColor;
+    vec3 color = ao * refractionColor + (gl_FrontFacing ? 1.0 : 0.5) * ao * (specularIBL);
 
     gl_FragColor = vec4(linearToSRGB(color), 1.0);
 }`
