@@ -100,7 +100,7 @@ vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
         return vec3(opacity);
       } else {
           return mix(
-            (0.75 + 0.25 * opacity) * (2.0 * glassColor + 0.5 * (1.0 - liquid) * liquidColor),
+            (0.75 + 0.25 * opacity) * (3.0 * glassColor + 0.5 * (1.0 - liquid) * liquidColor),
             vec3(opacity),
             opacity
           );
