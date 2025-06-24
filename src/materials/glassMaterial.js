@@ -123,23 +123,23 @@ void main() {
     noise = smoothstep(0.4, 1.0, noise);
     
     vec3 noiseCoords = v_modelPosition;
-    // noiseCoords.y += (0.1 + 0.1 * noise) * u_time;
+    // noiseCoords.y += 0.05 *(1.0 + noise) * u_time;
     float noiseHighFreq = clamp(snoise(vec4(2.25 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
-    noiseHighFreq = step(0.5, noiseHighFreq);
+    noiseHighFreq = smoothstep(0.3, 0.7, noiseHighFreq);
 
+    float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
     float waterDrops = noise * noiseHighFreq;
 
     vec3 viewNormal = faceDirection * normalize(v_viewNormal);
 	vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
 	vec3 V = normalize(cameraPosition - v_worldPosition);
 
-    N -= 0.25 * waterDrops * V;
+    N -= waterDrops * V;
     N = normalize(N);
     
 	vec3 R = normalize(reflect(-V, N));
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 2.0);
-    float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
 
 
     // Reflection
@@ -156,8 +156,8 @@ void main() {
     getIBLContribution(diffuseIBL, specularIBL, NdV, roughness, N, R, diffuseColor, specularColor);
 
     // Refraction
-    float ior = 1.5 + 0.2 * waterDrops;
-    float thickness = 0.1 * faceDirection;
+    float ior = 1.5;
+    float thickness = (0.1 + 0.025 * waterDrops) * faceDirection;
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
     vec3 transmissionRay = refractionVector * thickness;
