@@ -125,7 +125,7 @@ void main() {
     vec3 noiseCoords = v_modelPosition;
     // noiseCoords.y += 0.05 *(1.0 + noise) * u_time;
     float noiseHighFreq = clamp(snoise(vec4(2.25 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
-    noiseHighFreq = smoothstep(0.3, 0.7, noiseHighFreq);
+    noiseHighFreq = smoothstep(0.5, 1.0, noiseHighFreq);
 
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
     float waterDrops = noise * noiseHighFreq;
