@@ -157,7 +157,7 @@ void main() {
 
     // Refraction
     float ior = 1.5;
-    float thickness = (0.1 + 0.025 * waterDrops) * faceDirection;
+    float thickness = (0.2 + 0.025 * waterDrops) * faceDirection;
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
     vec3 transmissionRay = refractionVector * thickness;
