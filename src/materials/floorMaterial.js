@@ -183,7 +183,7 @@ void main() {
     vec2 uv = (screenUV - 0.5) * aspect + 0.5;
     vec3 bgColor = texture2D(u_bgTexture, uv).rgb;
     vec3 color = bgColor;
-    color = mix(color, vec3(1.0), 1.0 - pow(screenUV.y, 4.0));
+    color = mix(color, vec3(1.0), 1.0 - pow(screenUV.y, 2.0));
     color *= 0.8 + 0.2 * getShadowMask();
     gl_FragColor = vec4(color, 1.0);
     gl_FragColor.rgb = pow(gl_FragColor.rgb, vec3(2.2));

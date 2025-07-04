@@ -45,6 +45,7 @@ uniform sampler2D u_specular;
 uniform sampler2D u_lut;
 uniform vec3 u_color;
 uniform float u_time;
+uniform float u_frozenFactor;
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -119,13 +120,14 @@ ${snoise}
 void main() {
 	float faceDirection = gl_FrontFacing ? 1.0 : -1.0;
     
-    float noise = clamp(0.5 + snoise(vec4(0.2 * v_modelPosition, u_time * 0.025)), 0.0, 1.0);
-    noise = smoothstep(0.4, 1.0, noise);
+    // float noise = clamp(0.5 + snoise(vec4(0.2 * v_modelPosition, u_time * 0.025)), 0.0, 1.0);
+    // noise = smoothstep(0.4, 1.0, noise);
+    float noise = 1.0;
     
     vec3 noiseCoords = v_modelPosition;
     // noiseCoords.y += 0.05 *(1.0 + noise) * u_time;
-    float noiseHighFreq = clamp(snoise(vec4(2.25 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
-    noiseHighFreq = smoothstep(0.5, 1.0, noiseHighFreq);
+    float noiseHighFreq = clamp(snoise(vec4(16.0 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
+    noiseHighFreq = u_frozenFactor * abs(noiseHighFreq);
 
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
     float waterDrops = noise * noiseHighFreq;
@@ -134,7 +136,7 @@ void main() {
 	vec3 N = inverseTransformDirection(viewNormal, viewMatrix);
 	vec3 V = normalize(cameraPosition - v_worldPosition);
 
-    N -= waterDrops * V;
+    N += 0.25 * waterDrops;
     N = normalize(N);
     
 	vec3 R = normalize(reflect(-V, N));
@@ -142,9 +144,9 @@ void main() {
     float fresnel = pow(1.0 - NdV, 2.0);
 
     // Reflection
-    vec3 albedo = pow(u_color, vec3(2.2));
+    vec3 albedo = pow(u_color + 0.1 * u_frozenFactor, vec3(2.2)) ;
     albedo += 0.12 * (0.5 + 0.5 * albedo) * noise * (1.0 - waterDrops);
-    float roughness = 0.5 * noise * (1.0 - waterDrops);
+    float roughness = 0.25 * noise * pow(1.0 - waterDrops, 4.0) + 0.1 * u_frozenFactor;
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
@@ -172,10 +174,11 @@ void main() {
     scene = mix(scene, sceneBlurred, roughness);
 
     vec3 refractionColor = diffuseColor * scene;
-    vec3 color = (0.5 + 0.5 * ao) * (refractionColor + mix(0.4, 1.0, waterDrops) * specularIBL);
-    color += 0.01 * fresnel * waterDrops;
+    vec3 color = (0.5 + 0.5 * ao) * (refractionColor * mix(1.0, 0.8, waterDrops) + mix(0.4, 1.0, waterDrops) * specularIBL);
+    color += 0.005 * waterDrops;
 
     gl_FragColor = vec4(linearToSRGB(color), 1.0);
+    // gl_FragColor = vec4(vec3(noiseHighFreq), 1.0);
 }`
 
 export const fragmentDepthGlassShader = `

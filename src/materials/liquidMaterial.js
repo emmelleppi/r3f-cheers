@@ -105,6 +105,7 @@ uniform float u_impulse;
 uniform vec3 u_color;
 uniform float u_foam;
 uniform float u_bubbles;
+uniform float u_semitransparency;
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -204,6 +205,7 @@ void main() {
     
     float permanentFoam = u_foam * (0.5 + 0.1 * u_impulse) * smoothstep(-0.5, 0.0, noiseLowFreq + movingFillPosition);
     float totalFoam = max( foam , permanentFoam);
+    totalFoam *= 0.2 + 0.8 * u_semitransparency;
 
     if (!gl_FrontFacing) {
         totalFoam += u_impulse * 4.0 * (0.5 + 0.5 * noiseLowFreq) + 0.2 * noise;
@@ -226,7 +228,7 @@ void main() {
     vec3 albedo = baseColor + 0.75 * totalFoam;
 
     // Reflection
-    float roughness = totalFoam;
+    float roughness = clamp(totalFoam + 1.0 - u_semitransparency, 0.0, 1.0);
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
@@ -251,6 +253,7 @@ void main() {
     vec3 refractionColor = baseColor * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
 
     vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, albedo + 0.1 * noise, totalFoam);
+    color = mix(albedo, color, u_semitransparency);
 
     gl_FragColor = vec4(linearToSRGB(color), 0.0);
 }`

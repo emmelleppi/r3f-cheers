@@ -64,7 +64,7 @@ function Bottle() {
   const wobbleAmountToAddZ = useRef(0);
   const sinewave = useRef(0);
 
-  const { liquidColor, glassColor, capColor, capRoughness, foam, bubbles } = useControls({ 
+  const { liquidColor, glassColor, capColor, capRoughness, foam, bubbles, blurryness, semitransparency, frozenFactor } = useControls({ 
     liquidColor: '#FFDD66',
     glassColor: '#77a787',
     capColor: '#fffbe6',
@@ -86,6 +86,24 @@ function Bottle() {
       max: 2,
       step: 0.01
     },
+    blurryness: {
+      value: 0,
+      min: 0,
+      max: 1,
+      step: 0.01
+    },
+    semitransparency: {
+      value: 1,
+      min: 0,
+      max: 1,
+      step: 0.01
+    },
+    frozenFactor: {
+      value: 1,
+      min: 0,
+      max: 1,
+      step: 0.01
+    }
   })
 
   const light = useState(() => {
@@ -144,6 +162,7 @@ function Bottle() {
       u_color: {value: new THREE.Color("#FFDD66")},
       u_foam: {value: 0},
       u_bubbles: {value: 0},
+      u_semitransparency: {value: 1},
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
     })
   )[0]
@@ -154,6 +173,7 @@ function Bottle() {
       u_wobbleX: liquidUniforms.u_wobbleX,
       u_wobbleZ: liquidUniforms.u_wobbleZ,
       u_position: liquidUniforms.u_position,
+      u_semitransparency: liquidUniforms.u_semitransparency,
       u_caustic: {value: null },
     })
   )[0]
@@ -168,6 +188,7 @@ function Bottle() {
       u_specular: {value: null},
       u_lut: {value: null},
       u_color: {value: new THREE.Color("#50b070")},
+      u_frozenFactor: {value: 0},
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
     })
   )[0]
@@ -263,8 +284,9 @@ function Bottle() {
     const currentRT = gl.getRenderTarget();
     if (!currentRT) return;
 
-    const width = Math.floor(currentRT.width);
-    const height = Math.floor(currentRT.height);
+    const scale = fit(blurryness, 0, 1, 1, 0.05);
+    const width = Math.floor(currentRT.width * scale);
+    const height = Math.floor(currentRT.height * scale);
     
     onBeforeRenderBlur(gl, currentRT, width, height)
 
@@ -363,6 +385,7 @@ function Bottle() {
     glassUniforms.u_specular.value = specular;
     glassUniforms.u_lut.value = lut;
     glassUniforms.u_color.value.set(glassColor);
+    glassUniforms.u_frozenFactor.value = frozenFactor;
 
     capUniforms.u_specular.value = specular;
     capUniforms.u_lut.value = lut;
@@ -372,6 +395,7 @@ function Bottle() {
     liquidUniforms.u_diffuse.value = diffuse;
     liquidUniforms.u_specular.value = specular;
     liquidUniforms.u_lut.value = lut;
+    liquidUniforms.u_semitransparency.value = semitransparency;
 
     liquidDepthUniforms.u_caustic.value = caustic;
 
