@@ -126,7 +126,7 @@ void main() {
     
     vec3 noiseCoords = v_modelPosition;
     // noiseCoords.y += 0.05 *(1.0 + noise) * u_time;
-    float noiseHighFreq = clamp(snoise(vec4(16.0 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
+    float noiseHighFreq = clamp(snoise(vec4(8.0 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
     noiseHighFreq = u_frozenFactor * abs(noiseHighFreq);
 
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
