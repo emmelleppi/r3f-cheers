@@ -282,7 +282,7 @@ function Bottle() {
     const wobbleSpeed = 0.5;
     const maxWobble = fit(compensation.y, 10, 3, 0.035, 0.01);
 
-    liquidUniforms.u_impulse.value *= 0.995
+    liquidUniforms.u_impulse.value *= 0.99
 
     wobbleAmountToAddX.current = lerp(wobbleAmountToAddX.current, 0, delta * recovery);
     wobbleAmountToAddZ.current = lerp(wobbleAmountToAddZ.current, 0, delta * recovery);

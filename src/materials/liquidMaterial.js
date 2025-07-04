@@ -192,38 +192,41 @@ void main() {
         worldPosition.y += 2.0 * v_modelPosition.y * u_wobbleZ;
     }
     
+    float foam = clamp(u_foam * u_impulse * smoothstep(-4.0, 0.0, movingFillPosition), 0.0, 1.0);
+    
     vec3 noisePos = worldPosition;
     noisePos.y -= u_time;
     float noiseScale = 0.1 + 0.9 * smoothstep(-12.0 * u_impulse, 0.0, movingFillPosition);
     noiseScale *= u_bubbles;
+    noiseScale *= 1.0 - 0.7 * foam;
     float noise = noiseScale * clamp(snoise(vec4(8.0 * noisePos, 2.0 * u_time)), 0.0, 1.0);
     float noiseLowFreq = noiseScale * clamp(snoise(vec4(0.1 * v_modelPosition, 0.025 * u_time)), 0.0, 1.0);
     
-    float foam = u_foam * u_impulse * smoothstep(-4.0, 0.0, movingFillPosition);
-    float permanentFoam = u_foam * (0.5 + 0.5 * noise) * (0.5 + 0.1 * u_impulse) * smoothstep(-0.5, 0.0, noiseLowFreq + movingFillPosition);
+    float permanentFoam = u_foam * (0.5 + 0.1 * u_impulse) * smoothstep(-0.5, 0.0, noiseLowFreq + movingFillPosition);
+    float totalFoam = max( foam , permanentFoam);
 
     if (!gl_FrontFacing) {
-        foam = u_impulse * 4.0 * (0.5 + 0.5 * noiseLowFreq) + 0.2 * noise;
+        totalFoam += u_impulse * 4.0 * (0.5 + 0.5 * noiseLowFreq) + 0.2 * noise;
         N = normalize(vec3(
             .5 * v_wobble,
             1.0,
             .5 * v_wobble
         ));
     }
-    foam = clamp(foam, 0.0, 1.0);
+    totalFoam = clamp(totalFoam, 0.0, 1.0);
     N += noise * 0.5;
     N = normalize(N);
 
     vec3 V = normalize(cameraPosition - worldPosition);
-	  vec3 R = normalize(reflect(-V, N));
+    vec3 R = normalize(reflect(-V, N));
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 5.0);
 
-    vec3 baseColor = pow(u_color, vec3(2.2));
-    vec3 albedo = baseColor + (baseColor * 0.5 + 0.5) * (0.1 * noise + foam);
+    vec3 baseColor = pow(u_color, vec3(2.2)) + 0.05 * noise;
+    vec3 albedo = baseColor + 0.75 * totalFoam;
 
     // Reflection
-    float roughness = 0.0;
+    float roughness = totalFoam;
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
@@ -245,11 +248,9 @@ void main() {
     refractionCoords += 1.0;
     refractionCoords /= 2.0;
 
-    vec3 refractionColor = albedo * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
+    vec3 refractionColor = baseColor * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
 
-    float totalFoam = max( 0.5 * foam , permanentFoam);
-    vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, 0.5 + 0.5 * baseColor, totalFoam);
-    color += 0.02 * noise;
+    vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, albedo + 0.1 * noise, totalFoam);
 
     gl_FragColor = vec4(linearToSRGB(color), 0.0);
 }`
