@@ -66,7 +66,7 @@ function Bottle() {
 
   const { liquidColor, glassColor, capColor, capRoughness, foam, bubbles } = useControls({ 
     liquidColor: '#FFDD66',
-    glassColor: '#5fa777',
+    glassColor: '#77a787',
     capColor: '#fffbe6',
     capRoughness: {
       value: 0.3,
