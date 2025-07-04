@@ -17,6 +17,9 @@ uniform float u_wobbleX;
 uniform float u_wobbleZ;
 uniform vec3 u_position;
 uniform float u_time;
+uniform float u_foam;
+uniform float u_bubbles;
+uniform float u_impulse;
 
 #define PI 3.1415926538
 
@@ -39,28 +42,30 @@ vec3 inverseTransformDirection( in vec3 dir, in mat4 matrix ) {
 }
 
 void main () {
+    vec3 fillAmount = u_fillAmount;
+    fillAmount.y += 0.8 * u_impulse * u_foam;
     vec3 pos = position;
     vec3 worldPosition = (modelMatrix * vec4(pos, 1.0)).xyz;
-    vec3 worldPosOffset = worldPosition - (u_position + u_fillAmount);
+    vec3 worldPosOffset = worldPosition - (u_position + fillAmount);
 
     vec3 worldPosX= rotateAroundAxis(worldPosOffset, vec3(0.0, 0.0, 1.0), 90.0);
     vec3 worldPosZ = rotateAroundAxis(worldPosOffset, vec3(1.0, 0.0, 0.0), 90.0);
     vec3 worldPosAdjusted = worldPosition + (worldPosX  * u_wobbleX)+ (worldPosZ * u_wobbleZ); 
 
-    v_fillPosition = worldPosAdjusted - u_position - u_fillAmount;
+    v_fillPosition = worldPosAdjusted - u_position - fillAmount;
 
     float wobbleIntensity = abs(u_wobbleX) + abs(u_wobbleZ);
     
     float freq = 0.5;
-    float amplitude = 1.5; 
-    v_wobble = sin((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 0.5 * u_time) * (amplitude * wobbleIntensity);
+    float amplitude = 4.5; 
+    v_wobble = sin((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 0.5 * u_time);
     
     freq = 0.734;
-    amplitude = 0.0987; 
+    amplitude = 0.5; 
     v_wobble += cos((v_fillPosition.x * freq) - (v_fillPosition.z * freq) + 2.0 * u_time);
     
     freq = 1.2532;
-    amplitude = 0.05876; 
+    amplitude = 0.1; 
     v_wobble += cos((v_fillPosition.x * freq) + (v_fillPosition.z * freq) + 4.0 * u_time);
     v_wobble *= amplitude * wobbleIntensity;
     
@@ -98,6 +103,8 @@ uniform float u_wobbleZ;
 uniform float u_time;
 uniform float u_impulse;
 uniform vec3 u_color;
+uniform float u_foam;
+uniform float u_bubbles;
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -188,11 +195,12 @@ void main() {
     vec3 noisePos = worldPosition;
     noisePos.y -= u_time;
     float noiseScale = 0.1 + 0.9 * smoothstep(-12.0 * u_impulse, 0.0, movingFillPosition);
+    noiseScale *= u_bubbles;
     float noise = noiseScale * clamp(snoise(vec4(8.0 * noisePos, 2.0 * u_time)), 0.0, 1.0);
     float noiseLowFreq = noiseScale * clamp(snoise(vec4(0.1 * v_modelPosition, 0.025 * u_time)), 0.0, 1.0);
     
-    float foam = u_impulse * smoothstep(-4.0, 0.0, movingFillPosition);
-    float permanentFoam = (0.5 + 0.5 * noise) * (0.5 + 0.1 * u_impulse) * smoothstep(-0.5, 0.0, noiseLowFreq + movingFillPosition);
+    float foam = u_foam * u_impulse * smoothstep(-4.0, 0.0, movingFillPosition);
+    float permanentFoam = u_foam * (0.5 + 0.5 * noise) * (0.5 + 0.1 * u_impulse) * smoothstep(-0.5, 0.0, noiseLowFreq + movingFillPosition);
 
     if (!gl_FrontFacing) {
         foam = u_impulse * 4.0 * (0.5 + 0.5 * noiseLowFreq) + 0.2 * noise;
@@ -211,7 +219,8 @@ void main() {
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 5.0);
 
-    vec3 albedo = pow(u_color, vec3(2.2)) + 0.1 * noise + foam;
+    vec3 baseColor = pow(u_color, vec3(2.2));
+    vec3 albedo = baseColor + (baseColor * 0.5 + 0.5) * (0.1 * noise + foam);
 
     // Reflection
     float roughness = 0.0;
@@ -239,7 +248,7 @@ void main() {
     vec3 refractionColor = albedo * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
 
     float totalFoam = max( 0.5 * foam , permanentFoam);
-    vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, 0.5 + 0.5 * albedo, totalFoam);
+    vec3 color = mix(refractionColor + 0.3 * fresnel * reflectionColor, 0.5 + 0.5 * baseColor, totalFoam);
     color += 0.02 * noise;
 
     gl_FragColor = vec4(linearToSRGB(color), 0.0);

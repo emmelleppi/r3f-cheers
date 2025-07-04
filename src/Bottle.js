@@ -10,6 +10,7 @@ import { fragmentDepthGlassShader, fragmentGlassShader, vertexGlassShader } from
 import { fragmentDepthLiquidShader, fragmentLiquidShader, vertexLiquidShader } from "./materials/liquidMaterial";
 import { fragmentCapShader, fragmentDepthCapShader, vertexCapShader } from "./materials/capMaterial";
 import { fragmentFloorShader, vertexFloorShader } from "./materials/floorMaterial";
+import { useControls } from 'leva'
 
 const position = new THREE.Vector3();
 const lastPos = new THREE.Vector3();
@@ -62,6 +63,30 @@ function Bottle() {
   const wobbleAmountToAddX = useRef(0);
   const wobbleAmountToAddZ = useRef(0);
   const sinewave = useRef(0);
+
+  const { liquidColor, glassColor, capColor, capRoughness, foam, bubbles } = useControls({ 
+    liquidColor: '#FFDD66',
+    glassColor: '#5fa777',
+    capColor: '#fffbe6',
+    capRoughness: {
+      value: 0.3,
+      min: 0,
+      max: 1,
+      step: 0.01
+    },
+    foam: {
+      value: 1,
+      min: 0,
+      max: 2,
+      step: 0.01
+    },
+    bubbles: {
+      value: 1,
+      min: 0,
+      max: 2,
+      step: 0.01
+    },
+  })
 
   const light = useState(() => {
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -117,6 +142,8 @@ function Bottle() {
       u_lut: {value: null},
       u_impulse: {value: 0},
       u_color: {value: new THREE.Color("#FFDD66")},
+      u_foam: {value: 0},
+      u_bubbles: {value: 0},
       ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
     })
   )[0]
@@ -145,6 +172,17 @@ function Bottle() {
     })
   )[0]
   
+  const capUniforms = useState(
+    () => ({
+      u_time: glassUniforms.u_time,
+      u_specular: {value: null},
+      u_lut: {value: null},
+      u_roughness: {value: 0.3},
+      u_color: {value: new THREE.Color("#999")},
+      ...THREE.UniformsUtils.merge([THREE.UniformsLib.lights])
+    })
+  )[0]
+  
   const floorUniforms = useState(
     () => ({
       u_resolution: {value: new THREE.Vector2()},
@@ -165,7 +203,7 @@ function Bottle() {
   )[0];
 
   const [ref, api] = useCylinder(() => ({
-      mass: 10,
+      mass: 1,
       args: [2.5, 3, 20, 32],
       position: [0, 20, 0],
       rotation: [0, -1.8, 0],
@@ -225,8 +263,8 @@ function Bottle() {
     const currentRT = gl.getRenderTarget();
     if (!currentRT) return;
 
-    const width = Math.floor(0.5 * currentRT.width);
-    const height = Math.floor(0.5 * currentRT.height);
+    const width = Math.floor(currentRT.width);
+    const height = Math.floor(currentRT.height);
     
     onBeforeRenderBlur(gl, currentRT, width, height)
 
@@ -239,8 +277,8 @@ function Bottle() {
     time.current += dt;
     const delta = dt
     
-    const recovery = 2;
-    const thickness = 0.05;
+    const recovery = 4;
+    const thickness = 1.0;
     const wobbleSpeed = 0.5;
     const maxWobble = fit(compensation.y, 10, 3, 0.035, 0.01);
 
@@ -317,10 +355,19 @@ function Bottle() {
     liquidUniforms.u_wobbleX.value = wobbleAmountX;
     liquidUniforms.u_wobbleZ.value = wobbleAmountZ;
     liquidUniforms.u_time.value = time.current;
+    liquidUniforms.u_color.value.set(liquidColor);
+    liquidUniforms.u_foam.value = foam;
+    liquidUniforms.u_bubbles.value = bubbles;
     
     glassUniforms.u_diffuse.value = diffuse;
     glassUniforms.u_specular.value = specular;
     glassUniforms.u_lut.value = lut;
+    glassUniforms.u_color.value.set(glassColor);
+
+    capUniforms.u_specular.value = specular;
+    capUniforms.u_lut.value = lut;
+    capUniforms.u_color.value.set(capColor);
+    capUniforms.u_roughness.value = capRoughness;
 
     liquidUniforms.u_diffuse.value = diffuse;
     liquidUniforms.u_specular.value = specular;
@@ -338,10 +385,10 @@ function Bottle() {
       <group ref={ref} dispose={null} {...bind}>
         <group position={[0, 10.01, 0]}>
           <mesh geometry={nodes.Bottle_Cap.geometry} renderOrder={0} >
-            <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexCapShader} fragmentShader={fragmentCapShader} />
+            <shaderMaterial lights uniforms={capUniforms} vertexShader={vertexCapShader} fragmentShader={fragmentCapShader} />
           </mesh>
           <mesh geometry={nodes.Bottle_Cap.geometry} renderOrder={5} castShadow >
-            <shaderMaterial lights uniforms={glassUniforms} vertexShader={vertexCapShader} fragmentShader={fragmentCapShader} />
+            <shaderMaterial lights uniforms={capUniforms} vertexShader={vertexCapShader} fragmentShader={fragmentCapShader} />
             <shaderMaterial attach="customDepthMaterial"  vertexShader={vertexCapShader} fragmentShader={fragmentDepthCapShader} />
           </mesh>
         </group>

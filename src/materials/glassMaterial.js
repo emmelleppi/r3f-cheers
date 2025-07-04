@@ -124,7 +124,7 @@ void main() {
     
     vec3 noiseCoords = v_modelPosition;
     // noiseCoords.y += 0.05 *(1.0 + noise) * u_time;
-    float noiseHighFreq = clamp(snoise(vec4(2.25 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
+    float noiseHighFreq = clamp(snoise(vec4(1.25 * noiseCoords, u_time * 0.01)), 0.0, 1.0);
     noiseHighFreq = smoothstep(0.5, 1.0, noiseHighFreq);
 
     float ao = clamp((v_worldPosition.y + 12.0) / 3.0, 0.0, 1.0);
@@ -141,11 +141,10 @@ void main() {
     float NdV = clamp(abs(dot(N, V)), 0.001, 1.0);
     float fresnel = pow(1.0 - NdV, 2.0);
 
-
     // Reflection
     vec3 albedo = pow(u_color, vec3(2.2));
     albedo += 0.12 * (0.5 + 0.5 * albedo) * noise * (1.0 - waterDrops);
-    float roughness = 0.5 * noise * (1.0 - waterDrops);
+    float roughness = 0.25 * abs(noise) * (1.0 - waterDrops);
     float metallic = 0.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
@@ -157,7 +156,7 @@ void main() {
 
     // Refraction
     float ior = 1.5;
-    float thickness = (0.2 + 0.025 * waterDrops) * faceDirection;
+    float thickness = (0.38 + 0.025 * waterDrops) * faceDirection;
     float refractionRatio = 1.0 / ior;
     vec3 refractionVector = refract( -V, N, refractionRatio );
     vec3 transmissionRay = refractionVector * thickness;
@@ -168,12 +167,12 @@ void main() {
     refractionCoords += 1.0;
     refractionCoords /= 2.0;
 
-    vec3 scene = SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
-    vec3 sceneBlurred = SRGBtoLinear(texture2D(u_sceneBlurredMap, refractionCoords)).rgb;
+    vec3 scene = 0.9 * SRGBtoLinear(texture2D(u_sceneMap, refractionCoords)).rgb;
+    vec3 sceneBlurred = 0.9 * SRGBtoLinear(texture2D(u_sceneBlurredMap, refractionCoords)).rgb;
     scene = mix(scene, sceneBlurred, roughness);
 
     vec3 refractionColor = diffuseColor * scene;
-    vec3 color = ao * refractionColor + (gl_FrontFacing ? 1.0 : 0.5) * ao * (0.5 * specularIBL);
+    vec3 color = (0.5 + 0.5 * ao) * (refractionColor + 0.4 * specularIBL);
     color += 0.01 * fresnel * waterDrops;
 
     gl_FragColor = vec4(linearToSRGB(color), 1.0);

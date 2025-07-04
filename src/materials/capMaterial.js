@@ -34,11 +34,10 @@ varying vec3 v_modelPosition;
 varying vec3 v_worldPosition;
 varying vec3 v_viewPosition;
 
-uniform vec2 u_resolution;
-uniform sampler2D u_sceneMap;
-uniform sampler2D u_diffuse;
 uniform sampler2D u_specular;
 uniform sampler2D u_lut;
+uniform vec3 u_color;
+uniform float u_roughness;
 
 uniform mat4 modelMatrix;
 uniform mat4 projectionMatrix;
@@ -116,8 +115,8 @@ void main() {
     float fresnel = pow(1.0 - NdV, 2.0);
 
     // Reflection
-    vec3 albedo = pow(vec3(0.9, 0.9, 0.9), vec3(2.2));
-    float roughness = 0.3;
+    vec3 albedo = pow(u_color, vec3(2.2));
+    float roughness = u_roughness;
     float metallic = 1.0;
     vec3 f0 = vec3(0.04);
     vec3 diffuseColor = albedo * (vec3(1.0) - f0) * (1.0 - metallic);
